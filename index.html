@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaming Leaderboard System</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #ef4444;
+            --gold-color: #eab308;
+            --silver-color: #94a3b8;
+            --bronze-color: #b45309;
+            --blue-color: #38bdf8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .input-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: #0f172a;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input[type="text"] { flex: 2; width: 50%; }
+        input[type="number"] { flex: 1.2; width: 30%; }
+
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn:hover { opacity: 0.9; }
+
+        .btn-add {
+            background-color: var(--accent-color);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-reset {
+            background-color: #475569;
+            color: white;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            min-height: 40px;
+        }
+
+        .player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 5px solid #475569;
+        }
+
+        .player-row.rank-1 { border-left-color: var(--gold-color); }
+        .player-row.rank-2 { border-left-color: var(--silver-color); }
+        .player-row.rank-3 { border-left-color: var(--bronze-color); }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rank {
+            font-weight: bold;
+            font-size: 1.1rem;
+            min-width: 30px;
+        }
+
+        .player-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .score-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score {
+            color: #4ade80;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 2px 8px;
+        }
+
+        .btn-delete:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .stats-panel {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .empty-msg {
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+            padding: 12px;
+        }
+
+        .memory-inspection {
+            background-color: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .memory-title {
+            color: var(--blue-color);
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .memory-legend {
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .array-output {
+            color: #4ade80;
+            word-break: break-all;
+            line-height: 1.4;
+            background: #090d16;
+            padding: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏆 Gaming Leaderboard</h1>
+
+    <div class="input-form">
+        <input type="text" id="playerName" placeholder="Player Name">
+        <input type="number" id="playerScore" placeholder="Score">
+        <button class="btn btn-add" id="addBtn">Add Score</button>
+    </div>
+
+    <div class="leaderboard-list" id="leaderboardList"></div>
+
+    <div class="stats-panel">
+        <div>Capacity: <strong id="capacityText">5</strong></div>
+        <div>Active Players: <strong id="countText">0</strong></div>
+        <div>Top Score: <strong id="topScoreText" style="color:#4ade80;">N/A</strong></div>
+    </div>
+
+    <button class="btn btn-reset" id="resetBtn">Reset Leaderboard</button>
+
+    <div class="memory-inspection">
+        <div class="memory-title">🔍 Underlying Array State (Live Memory Inspection)</div>
+        <div class="memory-legend">Fixed-Capacity Array contiguous mapping | Max Capacity: 5</div>
+        <div class="array-output" id="arrayOutput">[]</div>
+    </div>
+</div>
+
+<script>
+    class LeaderboardSystem {
+        constructor(capacity = 5) {
+            this.capacity = capacity;
+            this.scores = [];
+        }
+
+        addScore(playerName, score) {
+            if (!playerName || isNaN(score)) return;
+
+            const entry = { playerName, score: Number(score) };
+
+            if (this.scores.length < this.capacity) {
+                this.scores.push(entry);
+            } else if (score > this.scores[this.scores.length - 1].score) {
+                this.scores[this.scores.length - 1] = entry;
+            } else {
+                alert("Score too low to qualify for top " + this.capacity + "!");
+                return;
+            }
+
+            // Keep array sorted descending by score
+            this.scores.sort((a, b) => b.score - a.score);
+        }
+
+        removePlayer(index) {
+            if (index >= 0 && index < this.scores.length) {
+                this.scores.splice(index, 1);
+            }
+        }
+
+        reset() {
+            this.scores = [];
+        }
+    }
+
+    const leaderboard = new LeaderboardSystem(5);
+
+    const leaderboardList = document.getElementById('leaderboardList');
+    const capacityText = document.getElementById('capacityText');
+    const countText = document.getElementById('countText');
+    const topScoreText = document.getElementById('topScoreText');
+    const arrayOutputEl = document.getElementById('arrayOutput');
+    const addBtn = document.getElementById('addBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function render() {
+        leaderboardList.innerHTML = '';
+
+        if (leaderboard.scores.length === 0) {
+            leaderboardList.innerHTML = '<div class="empty-msg">No players in leaderboard yet. Add one above!</div>';
+        } else {
+            leaderboard.scores.forEach((entry, index) => {
+                const row = document.createElement('div');
+                row.className = `player-row rank-${index + 1}`;
+
+                row.innerHTML = `
+                    <div class="player-info">
+                        <span class="rank">#${index + 1}</span>
+                        <span class="player-name">${entry.playerName}</span>
+                    </div>
+                    <div class="score-container">
+                        <span class="score">${entry.score} pts</span>
+                        <button class="btn-delete" onclick="deletePlayer(${index})" title="Remove Player">✕</button>
+                    </div>
+                `;
+                leaderboardList.appendChild(row);
+            });
+        }
+
+        countText.innerText = leaderboard.scores.length;
+        capacityText.innerText = leaderboard.capacity;
+        topScoreText.innerText = leaderboard.scores.length > 0 ? `${leaderboard.scores[0].score} pts` : 'N/A';
+        
+        // Live memory output
+        arrayOutputEl.innerText = JSON.stringify(leaderboard.scores, null, 2);
+    }
+
+    function handleAddPlayer() {
+        const nameInput = document.getElementById('playerName');
+        const scoreInput = document.getElementById('playerScore');
+
+        const name = nameInput.value.trim();
+        const score = Number(scoreInput.value);
+
+        if (name && !isNaN(score) && scoreInput.value !== "") {
+            leaderboard.addScore(name, score);
+            nameInput.value = '';
+            scoreInput.value = '';
+            render();
+        } else {
+            alert("Please enter both a valid player name and a numeric score.");
+        }
+    }
+
+    window.deletePlayer = function(index) {
+        leaderboard.removePlayer(index);
+        render();
+    };
+
+    addBtn.addEventListener('click', handleAddPlayer);
+    resetBtn.addEventListener('click', () => {
+        leaderboard.reset();
+        render();
+    });
+
+    // Add initial default players on load
+    leaderboard.addScore("Vortex", 4200);
+    leaderboard.addScore("PixelQueen", 3100);
+    leaderboard.addScore("SpeedRacer", 2950);
+
+    // Initial load
+    render();
+</script>
+
+</body>
+</html>
