@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media & Movie LIFO Stack Download Manager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.7); }
+        }
+        .glow-active-download {
+            animation: pulseGlow 2s infinite;
+        }
+        @keyframes progressStripes {
+            from { background-position: 1rem 0; }
+            to { background-position: 0 0; }
+        }
+        .animate-stripes {
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+            background-size: 1rem 1rem;
+            animation: progressStripes 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Top Navigation Header Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-4 sm:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-emerald-600 to-teal-600 text-white p-2.5 rounded-xl text-lg shadow-lg shadow-emerald-500/20">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base sm:text-lg text-slate-100 flex items-center gap-2">
+                    MediaVault LIFO Stack Engine
+                    <span class="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full uppercase">LIFO Priority</span>
+                </h1>
+                <p class="text-xs text-slate-400">Last-In, First-Out Movie & Audio Download Queue</p>
+            </div>
+        </div>
+
+        <!-- System Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openQRScannerModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95">
+                <i class="fa-solid fa-qrcode"></i>
+                Scan Movie Ticket QR
+            </button>
+            <button onclick="popActiveDownload()" class="bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 active:scale-95">
+                <i class="fa-solid fa-ban"></i>
+                Cancel Top Download (POP)
+            </button>
+            <button onclick="clearDownloadStack()" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/40 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash-can"></i>
+                Clear Stack
+            </button>
+        </div>
+    </header>
+
+    <!-- Key Metrics Bar -->
+    <section class="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+            <div>
+                <p class="text-xs font-medium text-slate-400">Stack Size (LIFO Depth)</p>
+                <h3 id="metric-stack-size" class="text-2xl font-black text-emerald-400 mt-1">0 / 8</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <i class="fa-solid fa-layer-group text-lg"></i>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+            <div>
+                <p class="text-xs font-medium text-slate-400">Active Priority Download (TOP)</p>
+                <h3 id="metric-active-title" class="text-sm font-bold text-sky-400 mt-1 truncate max-w-[140px]">IDLE</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <i class="fa-solid fa-film text-lg"></i>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+            <div>
+                <p class="text-xs font-medium text-slate-400">Current Speed (Bandwidth)</p>
+                <h3 id="metric-download-speed" class="text-2xl font-black text-purple-400 mt-1">0.0 MB/s</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <i class="fa-solid fa-bolt text-lg"></i>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-md">
+            <div>
+                <p class="text-xs font-medium text-slate-400">Completed Media</p>
+                <h3 id="metric-completed-count" class="text-2xl font-black text-teal-400 mt-1">0 Files</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+                <i class="fa-solid fa-circle-check text-lg"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Quick 1-Click Media Downloads & Code Inspector (4 Cols) -->
+        <section class="lg:col-span-4 space-y-6">
+
+            <!-- Fast One-Click Preset Media Chips -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-400 pb-3 border-b border-slate-800 mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-clapperboard mr-2"></i>Preset Media Downloads</span>
+                    <span class="text-[10px] font-mono text-slate-500">1-Click PUSH</span>
+                </h2>
+                <p class="text-xs text-slate-400 mb-4">Click any item below. The newest item clicked is <strong>pushed to the TOP of the stack</strong> and downloads immediately!</p>
+
+                <div class="grid grid-cols-1 gap-2.5">
+                    <button onclick="pushMediaPreset('Inception 4K HDR', 'Movie', '4.2 GB', 'fa-film', 'text-amber-400', 'bg-amber-950/40')" 
+                            class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 text-left flex items-center justify-between transition group">
+                        <div class="flex items-center space-x-3">
+                            '<span class="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-base border border-amber-500/30"><i class="fa-solid fa-film"></i></span>'
+                            <div>
+                                <p class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Inception 4K Ultra HD</p>
+                                <p class="text-[10px] text-slate-500">Movie • 4.2 GB • 2160p</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 font-bold transition">PUSH</span>
+                    </button>
+
+                    <button onclick="pushMediaPreset('Interstellar Soundtrack FLAC', 'Audio', '850 MB', 'fa-music', 'text-sky-400', 'bg-sky-950/40')" 
+                            class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 text-left flex items-center justify-between transition group">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-9 h-9 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center text-base border border-sky-500/30"><i class="fa-solid fa-music"></i></span>
+                            <div>
+                                <p class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Interstellar FLAC Audio</p>
+                                <p class="text-[10px] text-slate-500">Lossless Audio • 850 MB</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 font-bold transition">PUSH</span>
+                    </button>
+
+                    <button onclick="pushMediaPreset('Cyberpunk 2077 Album 320k', 'Audio', '320 MB', 'fa-headphones', 'text-purple-400', 'bg-purple-950/40')" 
+                            class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 text-left flex items-center justify-between transition group">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-9 h-9 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-base border border-purple-500/30"><i class="fa-solid fa-headphones"></i></span>
+                            <div>
+                                <p class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Cyberpunk 2077 Album</p>
+                                <p class="text-[10px] text-slate-500">Soundtrack • 320 MB</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 font-bold transition">PUSH</span>
+                    </button>
+
+                    <button onclick="pushMediaPreset('Avatar: Way of Water 3D', 'Movie', '6.8 GB', 'fa-video', 'text-teal-400', 'bg-teal-950/40')" 
+                            class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 text-left flex items-center justify-between transition group">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-9 h-9 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center text-base border border-teal-500/30"><i class="fa-solid fa-video"></i></span>
+                            <div>
+                                <p class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Avatar 3D Remux</p>
+                                <p class="text-[10px] text-slate-500">3D BluRay • 6.8 GB</p>
+                            </div>
+                        </div>
+                        '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 font-bold transition">PUSH</span>''
+                    </button>
+
+                    <button onclick="pushMediaPreset('Lofi Chill Beats 2026 Collection', 'Audio', '1.1 GB', 'fa-radio', 'text-rose-400', 'bg-rose-950/40')" 
+                            class="w-full bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 text-left flex items-center justify-between transition group">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-9 h-9 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-base border border-rose-500/30"><i class="fa-solid fa-radio"></i></span>
+                            <div>
+                                <p class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Lofi Beats Collection</p>
+                                <p class="text-[10px] text-slate-500">Chill Hop • 1.1 GB</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-mono px-2 py-1 rounded border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-950 font-bold transition">PUSH</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Real-time Stack JavaScript Code Inspector -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-purple-400 pb-3 border-b border-slate-800 mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-code mr-2"></i>Stack Execution Tracer</span>
+                    <span class="text-[10px] font-mono text-slate-500">LIFO Code</span>
+                </h2>
+                
+                <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-slate-300 space-y-1.5">
+                    <p id="code-line-1" class="text-slate-500">// LIFO Download Priority Engine</p>
+                    <p id="code-line-2"><span class="text-purple-400">function</span> <span class="text-blue-400">processDownloadStack</span>() {</p>
+                    <p id="code-line-3" class="pl-4"><span class="text-emerald-400">const</span> active = downloadStack[downloadStack.length - 1];</p>
+                    <p id="code-line-4" class="pl-4">active.progress += speed;</p>
+                    <p id="code-line-5" class="pl-4"><span class="text-purple-400">if</span> (active.progress >= 100) downloadStack.<span class="text-yellow-400">pop</span>();</p>
+                    <p id="code-line-6">}</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Center Column: Active Priority Download Monitor & Stack Tower (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col space-y-6">
+
+            <!-- Active Download Monitor (Top of Stack) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200">Active High-Priority Download</h2>
+                    </div>
+                    <span class="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-bold">STACK TOP (PEEK)</span>
+                </div>
+
+                <div id="activeDownloadViewport">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Visual Download Stack Tower -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <span>Download Stack Tower (LIFO Memory)</span>
+                    </h2>
+                    <span class="text-[10px] font-mono text-slate-500">Highest Index Downloads First</span>
+                </div>
+
+                <div id="downloadStackTower" class="flex-1 flex flex-col-reverse gap-2.5 overflow-y-auto max-h-[320px] p-2 bg-slate-950 rounded-xl border border-slate-800 custom-scrollbar">
+                    <!-- Dynamic Stack Item Cards -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Completed Media Vault & Activity Log (3 Cols) -->
+        <section class="lg:col-span-3 space-y-6 flex flex-col">
+            
+            <!-- Completed Downloads Vault -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-teal-400 pb-3 border-b border-slate-800 mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-folder-check mr-2"></i>Downloaded Vault</span>
+                    <span class="text-[10px] font-mono text-slate-500">Finished</span>
+                </h2>
+
+                <div id="completedVaultList" class="flex-1 overflow-y-auto max-h-[220px] p-2 bg-slate-950 rounded-xl border border-slate-800 custom-scrollbar space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Download Activity Audit Log -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 pb-3 border-b border-slate-800 mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-list-check mr-2"></i>Activity Audit Log</span>
+                    <span class="text-[10px] font-mono text-slate-500">Events</span>
+                </h2>
+
+                <div class="overflow-y-auto max-h-[200px] bg-slate-950 rounded-xl border border-slate-800 p-2 custom-scrollbar">
+                    <ul id="activityLog" class="space-y-2 text-xs">
+                        <!-- Log items dynamically added -->
+                    </ul>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Simulated QR Camera Scanner Modal -->
+    <div id="qrScannerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="closeQRScannerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-base">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/20">
+                    <i class="fa-solid fa-qrcode"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-100">Media QR Scanner</h3>
+                    <p class="text-xs text-slate-400">Scan media ticket to PUSH onto download stack</p>
+                </div>
+            </div>
+
+            <!-- Camera Simulation Box -->
+            <div class="bg-slate-950 border-2 border-dashed border-emerald-500/40 rounded-2xl p-6 text-center relative overflow-hidden my-4">
+                <div class="w-24 h-24 mx-auto bg-white p-2 rounded-xl shadow-lg border border-slate-700 flex items-center justify-center">
+                    <div id="modalQrPreview"></div>
+                </div>
+                <div class="mt-4 space-y-1">
+                    <p class="text-xs font-bold text-emerald-400" id="modalQrTitle">Dune: Part Two 4K</p>
+                    <p class="text-[10px] font-mono text-slate-500" id="modalQrMeta">Movie • 5.4 GB</p>
+                </div>
+                <span class="inline-block mt-3 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full font-mono">
+                    <i class="fa-solid fa-camera mr-1"></i> SCANNING MEDIA TICKET
+                </span>
+            </div>
+
+            <!-- Scan Action Buttons -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="simulateRandomMediaQR()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-2.5 rounded-xl text-xs transition">
+                    <i class="fa-solid fa-shuffle mr-1"></i> Random Ticket
+                </button>
+                <button onclick="executeModalQRScan()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-qrcode"></i> Scan & PUSH to Stack
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Engine -->
+    <script>
+        const MAX_STACK_CAPACITY = 8;
+        
+        // Core Stack Array (LIFO Data Structure)
+        let downloadStack = [];
+        let completedVault = [];
+
+        // Dynamic Download Simulation Parameters
+        let downloadTimer = null;
+        let currentSpeedMB = 0;
+
+        // Modal Active Target
+        let currentModalQrMedia = {
+            title: "Dune: Part Two 4K IMAX",
+            type: "Movie",
+            size: "5.4 GB",
+            icon: "fa-film",
+            iconColor: "text-amber-400"
+        };
+        let modalQrInstance = null;
+
+        // -----------------------------------------------------------------
+        // CORE STACK DATA STRUCTURE METHODS (LIFO)
+        // -----------------------------------------------------------------
+
+        /**
+         * PUSH Operation: Adds a new media item onto the TOP of the download stack.
+         * In LIFO, the new item becomes the TOP and immediately gets active bandwidth!
+         */
+        function pushToDownloadStack(mediaItem) {
+            if (downloadStack.length >= MAX_STACK_CAPACITY) {
+                alert('STACK OVERFLOW: Download Stack capacity reached (Maximum 8 items)!');
+                addActivityLog('OVERFLOW', `Attempted to push [${mediaItem.title}], but stack is full.`, 'bg-rose-500/10 text-rose-400 border-rose-500/20');
+                return false;
+            }
+
+            // Create download stack element with progress state
+            const stackElement = {
+                id: 'dl_' + Date.now(),
+                title: mediaItem.title,
+                type: mediaItem.type,
+                size: mediaItem.size,
+                icon: mediaItem.icon || 'fa-file-video',
+                iconColor: mediaItem.iconColor || 'text-emerald-400',
+                progress: 0,
+                addedTime: new Date().toLocaleTimeString()
+            };
+
+            // PUSH to top of array
+            downloadStack.push(stackElement);
+
+            highlightCodeLine(3);
+            addActivityLog('PUSH', `Pushed [${stackElement.title}] to TOP of stack. Prioritized for immediate download!`, 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20');
+
+            ensureDownloadLoopRunning();
+            renderMasterUI();
+            return true;
+        }
+
+        /**
+         * POP Operation: Cancels or removes the TOP active item from the stack.
+         */
+        function popActiveDownload() {
+            if (downloadStack.length === 0) {
+                alert('STACK UNDERFLOW: No downloads currently in the stack!');
+                return;
+            }
+
+            // POP top element
+            const poppedItem = downloadStack.pop();
+
+            highlightCodeLine(5);
+            addActivityLog('POP (CANCEL)', `Cancelled top download [${poppedItem.title}]. Stack popped!`, 'bg-amber-500/10 text-amber-400 border-amber-500/20');
+
+            renderMasterUI();
+        }
+
+        /**
+         * PEEK Operation: Returns the top active item without modifying the stack.
+         */
+        function peekTopDownload() {
+            if (downloadStack.length === 0) return null;
+            return downloadStack[downloadStack.length - 1];
+        }
+
+        // -----------------------------------------------------------------
+        // DYNAMIC DOWNLOAD SIMULATION LOOP
+        // -----------------------------------------------------------------
+
+        function ensureDownloadLoopRunning() {
+            if (!downloadTimer) {
+                downloadTimer = setInterval(updateDownloadProgress, 400);
+            }
+        }
+
+        function updateDownloadProgress() {
+            if (downloadStack.length === 0) {
+                currentSpeedMB = 0;
+                if (downloadTimer) {
+                    clearInterval(downloadTimer);
+                    downloadTimer = null;
+                }
+                renderMasterUI();
+                return;
+            }
+
+            // Generate realistic bandwidth speed (12 MB/s to 35 MB/s)
+            currentSpeedMB = (Math.random() * 23 + 12).toFixed(1);
+
+            // In LIFO, ONLY the item at the TOP of the stack gets downloaded!
+            const topItem = peekTopDownload();
+            if (topItem) {
+                // Increment progress
+                topItem.progress += Math.floor(Math.random() * 8 + 6);
+
+                highlightCodeLine(4);
+
+                // If completed, POP from stack and move to vault
+                if (topItem.progress >= 100) {
+                    topItem.progress = 100;
+                    topItem.completedTime = new Date().toLocaleTimeString();
+                    
+                    // POP finished item
+                    const finishedItem = downloadStack.pop();
+                    completedVault.unshift(finishedItem);
+
+                    highlightCodeLine(5);
+                    addActivityLog('COMPLETE', `Finished downloading [${finishedItem.title}]. Popped from stack into Vault!`, 'bg-teal-500/10 text-teal-400 border-teal-500/20');
+                }
+            }
+
+            renderMasterUI();
+        }
+
+        // -----------------------------------------------------------------
+        // PRESETS & QR MODAL ACTIONS
+        // -----------------------------------------------------------------
+
+        function pushMediaPreset(title, type, size, icon, iconColor) {
+            pushToDownloadStack({ title, type, size, icon, iconColor });
+        }
+
+        function openQRScannerModal() {
+            document.getElementById('qrScannerModal').classList.remove('hidden');
+            updateModalQRPreview();
+        }
+
+        function closeQRScannerModal() {
+            document.getElementById('qrScannerModal').classList.add('hidden');
+        }
+
+        function updateModalQRPreview() {
+            const container = document.getElementById('modalQrPreview');
+            container.innerHTML = '';
+
+            document.getElementById('modalQrTitle').innerText = currentModalQrMedia.title;
+            document.getElementById('modalQrMeta').innerText = `${currentModalQrMedia.type} • ${currentModalQrMedia.size}`;
+
+            modalQrInstance = new QRCode(container, {
+                text: JSON.stringify(currentModalQrMedia),
+                width: 80,
+                height: 80,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function simulateRandomMediaQR() {
+            const randomMediaList = [
+                { title: "Oppenheimer IMAX 4K", type: "Movie", size: "7.1 GB", icon: "fa-film", iconColor: "text-amber-400" },
+                { title: "Daft Punk Discovery FLAC", type: "Audio", size: "520 MB", icon: "fa-music", iconColor: "text-purple-400" },
+                { title: "The Dark Knight 2160p", type: "Movie", size: "5.8 GB", icon: "fa-video", iconColor: "text-sky-400" },
+                { title: "Hans Zimmer Live Album", type: "Audio", size: "940 MB", icon: "fa-headphones", iconColor: "text-teal-400" }
+            ];
+
+            const index = Math.floor(Math.random() * randomMediaList.length);
+            currentModalQrMedia = randomMediaList[index];
+            updateModalQRPreview();
+        }
+
+        function executeModalQRScan() {
+            pushToDownloadStack(currentModalQrMedia);
+            closeQRScannerModal();
+        }
+
+        function clearDownloadStack() {
+            downloadStack = [];
+            currentSpeedMB = 0;
+            addActivityLog('CLEAR', 'Cleared all pending items from download stack.', 'bg-rose-500/10 text-rose-400 border-rose-500/20');
+            renderMasterUI();
+        }
+
+        // -----------------------------------------------------------------
+        // UI RENDERERS & HELPERS
+        // -----------------------------------------------------------------
+
+        function addActivityLog(tag, detail, badgeClasses) {
+            const logList = document.getElementById('activityLog');
+            const li = document.createElement('li');
+            li.className = 'flex items-start space-x-2 border-b border-slate-800/40 pb-1.5';
+
+            // Quoted HTML strings inside template literals prevent syntax errors
+            li.innerHTML = `
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${badgeClasses}">${tag}</span>
+                <div class="flex-1">
+                    <p class="text-slate-300 font-medium">${detail}</p>
+                    <span class="text-[9px] font-mono text-slate-500">${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
+
+            logList.prepend(li);
+        }
+
+        function highlightCodeLine(lineNum) {
+            for (let i = 1; i <= 6; i++) {
+                const line = document.getElementById(`code-line-${i}`);
+                if (line) line.classList.remove('bg-emerald-500/20', 'text-emerald-300');
+            }
+            const activeLine = document.getElementById(`code-line-${lineNum}`);
+            if (activeLine) activeLine.classList.add('bg-emerald-500/20', 'text-emerald-300');
+        }
+
+        function renderMasterUI() {
+            renderMetrics();
+            renderActiveDownloadViewport();
+            renderDownloadStackTower();
+            renderCompletedVault();
+        }
+
+        function renderMetrics() {
+            document.getElementById('metric-stack-size').innerText = `${downloadStack.length} / ${MAX_STACK_CAPACITY}`;
+            document.getElementById('metric-download-speed').innerText = `${currentSpeedMB} MB/s`;
+            document.getElementById('metric-completed-count').innerText = `${completedVault.length} Files`;
+
+            const topItem = peekTopDownload();
+            const activeTitleEl = document.getElementById('metric-active-title');
+            if (topItem) {
+                activeTitleEl.innerText = topItem.title;
+            } else {
+                activeTitleEl.innerText = "IDLE";
+            }
+        }
+
+        function renderActiveDownloadViewport() {
+            const container = document.getElementById('activeDownloadViewport');
+            container.innerHTML = '';
+
+            const topItem = peekTopDownload();
+
+            if (!topItem) {
+                // Quoted string tags inside template literals prevent SyntaxErrors
+                container.innerHTML = `
+                    <div class="text-center py-10 bg-slate-950/60 rounded-xl border border-slate-800/60">
+                        <i class="fa-solid fa-cloud-arrow-down text-3xl text-slate-700 mb-2"></i>
+                        <p class="text-xs font-semibold text-slate-400">Download Stack is Empty</p>
+                        <p class="text-[10px] text-slate-600 mt-1">Click a media preset or scan a QR ticket to PUSH onto stack.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'bg-slate-950 p-4 rounded-xl border border-emerald-500/40 glow-active-download space-y-3';
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl ${topItem.iconColor}">
+                            <i class="fa-solid ${topItem.icon}"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-100">${topItem.title}</h3>
+                            <p class="text-[10px] font-mono text-slate-400">${topItem.type} • ${topItem.size} • Added ${topItem.addedTime}</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-emerald-400">${topItem.progress}%</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full animate-stripes transition-all duration-300" style="width: ${topItem.progress}%"></div>
+                </div>
+
+                <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 pt-1">
+                    <span>Speed: <strong class="text-emerald-400">${currentSpeedMB} MB/s</strong></span>
+                    <span>Status: <strong class="text-sky-400">ACTIVELY DOWNLOADING (TOP)</strong></span>
+                </div>
+            `;
+
+            container.appendChild(card);
+        }
+
+        function renderDownloadStackTower() {
+            const tower = document.getElementById('downloadStackTower');
+            tower.innerHTML = '';
+
+            if (downloadStack.length === 0) {
+                tower.innerHTML = '<div class="text-slate-600 text-xs italic text-center py-12">No media items waiting in stack memory.</div>';
+                return;
+            }
+
+            downloadStack.forEach((item, index) => {
+                const isTop = index === downloadStack.length - 1;
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                    isTop 
+                        ? 'bg-emerald-950/40 border-emerald-500/80 text-emerald-200 ring-2 ring-emerald-500/30' 
+                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`;
+
+                const statusTag = isTop 
+                    ? '<span class="bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded font-mono">TOP (DOWNLOADING)</span>'
+                    : `<span class="bg-slate-800 text-slate-400 border border-slate-700 text-[9px] font-mono px-2 py-0.5 rounded">WAITING IN STACK [${index}]</span>`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 truncate">
+                        <span class="w-7 h-7 rounded-lg bg-slate-950 flex items-center justify-center text-xs ${item.iconColor}">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </span>
+                        <div class="truncate">
+                            <p class="font-bold text-slate-200 truncate">${item.title}</p>
+                            <p class="text-[10px] font-mono text-slate-500">${item.size} • Progress: ${item.progress}%</p>
+                        </div>
+                    </div>
+                    <div class="ml-2">
+                        ${statusTag}
+                    </div>
+                `;
+
+                tower.appendChild(card);
+            });
+        }
+
+        function renderCompletedVault() {
+            const vault = document.getElementById('completedVaultList');
+            vault.innerHTML = '';
+
+            if (completedVault.length === 0) {
+                vault.innerHTML = '<div class="text-slate-600 text-xs italic text-center py-8">Vault is empty. Finished downloads will pop here.</div>';
+                return;
+            }
+
+            completedVault.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800/80 rounded-xl p-2.5 flex items-center justify-between text-xs';
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-2.5 truncate">
+                        <i class="fa-solid fa-circle-check text-teal-400 text-sm"></i>
+                        <div class="truncate">
+                            <p class="font-bold text-slate-200 truncate">${item.title}</p>
+                            <p class="text-[9px] font-mono text-slate-500">${item.size} • Done at ${item.completedTime}</p>
+                        </div>
+                    </div>
+                    <span class="text-[9px] font-mono bg-teal-500/10 text-teal-400 border border-teal-500/30 px-2 py-0.5 rounded">POPPED</span>
+                `;
+
+                vault.appendChild(card);
+            });
+        }
+
+        // Initialize Window
+        window.onload = function() {
+            renderMasterUI();
+            addActivityLog('INIT', 'LIFO Media Download Stack Manager initialized.', 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20');
+        };
+    </script>
+</body>
+</html>
